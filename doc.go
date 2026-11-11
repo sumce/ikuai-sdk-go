@@ -38,4 +38,22 @@
 // A login session is maintained automatically: calls that fail with the
 // "no login authentication" error (Result 10014) trigger a transparent
 // re-login and one retry.
+//
+// # Guarantees
+//
+//   - Concurrency: *Client and every service built on it are safe for
+//     concurrent use by multiple goroutines. The session is mutex
+//     guarded and re-login is single-flight. Each Client instance is
+//     fully independent — create as many as needed.
+//   - No global state: the SDK never mutates http.DefaultClient, the
+//     environment or any process-wide setting, and library code never
+//     panics; every failure is returned as an error value.
+//   - Zero dependencies: the module depends only on the Go standard
+//     library, which keeps the supply chain minimal.
+//   - Errors: every non-success API result is a structured *APIError.
+//     Use errors.As(err, &ae) to inspect it and errors.Is with a code
+//     target for programmatic matching, e.g.
+//     errors.Is(err, &ikuai.APIError{Code: ikuai.CodeNoLoginAuth}).
+//     Sentinel ikuai.ErrInvalidParam marks invalid arguments and is
+//     always wrapped with %w so the original chain survives.
 package ikuai

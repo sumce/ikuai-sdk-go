@@ -69,25 +69,37 @@ func (e *APIError) IsAuthError() bool {
 // username or password.
 func (e *APIError) IsBadCredentials() bool { return e.IsCode(CodeBadCredentials) }
 
-// AsAPIError unwraps err into *APIError when possible.
+// Is lets errors.Is match a wrapped *APIError against a target carrying
+// the expected result code, e.g.
+//
+//	errors.Is(err, &ikuai.APIError{Code: ikuai.CodeNoLoginAuth})
+//
+// Non-zero FuncName/Action fields of the target must match too; zero
+// fields act as wildcards so coarse targets stay useful.
+func (e *APIError) Is(target error) bool {
+	t, ok := target.(*APIError)
+	if !ok {
+		return false
+	}
+	if e.Code != t.Code {
+		return false
+	}
+	if t.FuncName != "" && e.FuncName != t.FuncName {
+		return false
+	}
+	if t.Action != "" && e.Action != t.Action {
+		return false
+	}
+	return true
+}
+
+// AsAPIError unwraps err into *APIError when possible, following the
+// full error chain via errors.As (single Unwrap, Unwrap() []error and
+// any combination thereof).
 func AsAPIError(err error) (*APIError, bool) {
-	if err == nil {
-		return nil, false
-	}
-	if ae, ok := err.(*APIError); ok {
+	var ae *APIError
+	if errors.As(err, &ae) {
 		return ae, true
-	}
-	// Support wrapped errors.
-	type unwrapper interface{ Unwrap() error }
-	for e := err; e != nil; {
-		if ae, ok := e.(*APIError); ok {
-			return ae, true
-		}
-		if u, ok := e.(unwrapper); ok {
-			e = u.Unwrap()
-			continue
-		}
-		break
 	}
 	return nil, false
 }

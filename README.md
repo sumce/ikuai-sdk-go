@@ -46,6 +46,19 @@ func main() {
 - **零依赖**：纯标准库；函数式选项（超时/TLS 跳过验证/日志/重登策略）
 - **双轨测试**：离线假路由器（`internal/testserver`）+ 真机联调（`internal/livetest`，环境变量门控）
 
+## 设计保证
+
+对照跨语言 SDK 通用准则与 Go 惯用规范的自查结论，也是对本库使用方的承诺：
+
+- **不破坏宿主应用**：库代码零 `panic`（一切失败皆返回 error 值）、不触碰 `http.DefaultClient` / 环境变量等任何进程级全局状态；唯一 panic 位于测试基建 `internal/testserver`（构造失败即失败，测试场景惯例）
+- **零全局状态**：每个 `Client` 实例持有独立配置与会话，同进程可并存任意多个不同配置实例
+- **并发安全**：`*Client` 与全部 Service 可被多 goroutine 并发使用；会话互斥保护、重登单飞（single-flight）
+- **依赖克制**：`go.mod` 零第三方依赖，仅标准库
+- **地道 Go 风格**：`context.Context` 首参、构造函数返回具体结构体（`*Client` / `*Router`，可无破坏性加方法）、函数式选项、`%w` 错误包装全程保留原始链
+- **结构化错误**：一切非成功 API 结果皆 `*APIError`（Code/ErrMsg/FuncName/Action/HTTPStatus/Body）；`errors.As` 取详情，`errors.Is(err, &ikuai.APIError{Code: ikuai.CodeNoLoginAuth})` 按码程序化判断，哨兵 `ikuai.ErrInvalidParam` 标记非法入参
+- **开箱即用的默认值**：单请求 30s 超时（context 自带 deadline 时以调用方为准）、会话过期自动重登+单次重试、预设控制台同款 UA 与请求头
+- **版本管理**：严格 SemVer；v1 内所有变更保持向后兼容，未来不兼容变更将升 `v2` 模块路径
+
 ## 安装
 
 ```
